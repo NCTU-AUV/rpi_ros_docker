@@ -1,0 +1,42 @@
+#!/bin/bash
+
+NC='\033[0m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+
+set -x
+
+IMAGE_NAME=orca_noetic
+CONTAINER_NAME=orca_noetic
+WORKDIR=/imu_ws
+
+cd "$(dirname "$0")/.." || exit 1
+
+# require ROS2_WS to be set
+if [ -z "${ROS_WS}" ]; then
+    echo -e "${RED}FAILED: environment variable ROS_WS not set${NC}"
+    exit 1
+fi
+
+# attach to running container
+if [ "$(docker container inspect -f '{{.State.Status}}' $CONTAINER_NAME)" = "running" ]; then
+    # check if arguments are provided
+    if [ -z "$1" ]; then
+        echo -e "${YELLOW}WARNING: no arguments provided${NC}"
+    fi
+    # run docker exec
+    docker exec -it $CONTAINER_NAME /ros_entrypoint.sh /bin/bash
+# no orca_ros2 container is running
+else
+    docker run -it --rm \
+        --privileged \
+        -v "${ROS_WS}:${WORKDIR}" \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        -v "$HOME/.Xauthority:/home/admin/.Xauthority:ro" \
+        -e DISPLAY \
+        --net=host \
+        --pid=host \
+        --name $CONTAINER_NAME \
+        "${IMAGE_NAME}:latest" /ros_entrypoint.sh /bin/bash
+fi
